@@ -1,0 +1,31 @@
+{
+  "name": "group-model-viewer",
+  "version": "0.1.0",
+  "description": "Multiple users view the same 3-D model simultaneously",
+  "scripts": {
+    "build": "mkdir -p dist/img && cp -rp img/*.glb dist/img/; parcel build index.html",
+    "dev": "parcel index.html --https --open",
+    "start": "npm run build && npm run dev",
+    "surge": "surge dist/ https://group-model-viewer.surge.sh",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DougReeder/group-model-viewer.git"
+  },
+  "keywords": [
+    "WebXR",
+    "3-D",
+    "VR",
+    "AR"
+  ],
+  "author": "Doug Reeder & A-Frame authors",
+  "license": "GPL-3.0-or-later",
+  "bugs": {
+    "url": "https://github.com/DougReeder/group-model-viewer/issues"
+  },
+  "homepage": "https://github.com/DougReeder/group-model-viewer#readme",
+  "devDependencies": {
+    "parcel": "^2.9.2"
+  }
+}
