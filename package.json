@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Multiple users view the same 3-D model simultaneously",
   "scripts": {
-    "build": "mkdir -p dist/img && cp -rp img/*.glb dist/img/; parcel build index.html",
+    "build": "mkdir -p dist/resources && cp -rp resources/*.glb dist/resources/; parcel build index.html",
     "dev": "parcel index.html --https --open",
     "start": "npm run build && npm run dev",
     "surge": "surge dist/ https://group-model-viewer.surge.sh",

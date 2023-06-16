@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <head>
   <meta charset="utf-8">
-  <title>Model Viewer AR - VR</title>
-  <meta name="description" content="Model Viewer (VR / AR) • A-Frame">
+  <title>Group Model Viewer AR — VR</title>
+  <meta name="description" content="Group model viewer (VR / AR) • A-Frame">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
   <script src="src/animation-mixer.js"></script>
@@ -14,15 +14,10 @@
 
 <a-scene
   renderer="colorManagement: true;"
-  model-viewer="gltfModel: #triceratops; title: Triceratops">
+  model-viewer="gltfModel: #styracosaurus; title: Styracosaurus">
   <a-assets timeout="10000">
-    <!--
-      Model source: https://sketchfab.com/3d-models/triceratops-d16aabe33dc24f8ab37e3df50c068265
-      Model author: https://sketchfab.com/VapTor
-      Model license: Sketchfab Standard
-    -->
-    <a-asset-item id="triceratops"
-      src="https://cdn.aframe.io/examples/ar/models/triceratops/scene.gltf"
+    <a-asset-item id="styracosaurus"
+      src="resources/styracosaurus_animated.glb"
       response-type="arraybuffer" crossorigin="anonymous"></a-asset-item>
 
     <img id="shadow" src="src/shadow.png"></img>
