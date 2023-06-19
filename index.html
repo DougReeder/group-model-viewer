@@ -4,7 +4,9 @@
   <title>Group Model Viewer AR — VR</title>
   <meta name="description" content="Group model viewer (VR / AR) • A-Frame">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <script src="https://unpkg.com/@croquet/croquet"></script>
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://unpkg.com/aframe-croquet-component/public/lib/aframe-croquet-component.js"></script>
   <script src="src/animation-mixer.js"></script>
   <script src="src/ar-shadows.js"></script>
   <script src="src/model-viewer.js"></script>
@@ -14,14 +16,22 @@
 
 <a-scene
   renderer="colorManagement: true;"
-  model-viewer="gltfModel: #styracosaurus; title: Styracosaurus">
-  <a-assets timeout="10000">
+  model-viewer
+  croquet="apiKey: 1psHtNLMJ94kFNzLqmPoFpt3HJGtp7zrgf77A72r1">
+  <a-assets timeout="10_000">
+    <a-asset-item id="avatarModel" src="resources/daruma_doll.glb"></a-asset-item>
+
     <a-asset-item id="styracosaurus"
       src="resources/styracosaurus_animated.glb"
       response-type="arraybuffer" crossorigin="anonymous"></a-asset-item>
-
     <img id="shadow" src="src/shadow.png"></img>
   </a-assets>
 </a-scene>
+
+<template id="avatarTemplate">
+  <a-entity>   <!-- This entity's location and rotation are set from the other user's camera -->
+    <a-entity gltf-model="#avatarModel" scale="10 10 10" position="0 -.30 0"></a-entity>
+  </a-entity>
+</template>
 </body>
 </html>

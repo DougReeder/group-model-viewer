@@ -13,5 +13,8 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="@croquet" level="application" />
+    <orderEntry type="library" name="aframe-croquet-component" level="application" />
+    <orderEntry type="library" name="aframe" level="application" />
   </component>
 </module>

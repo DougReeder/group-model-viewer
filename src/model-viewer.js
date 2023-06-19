@@ -1,8 +1,9 @@
 /* global AFRAME, THREE */
+
+const TITLE_ID = 'title';
+
 AFRAME.registerComponent('model-viewer', {
   schema: {
-    gltfModel: {default: ''},
-    title: {default: ''},
     uploadUIEnabled: {default: true}
   },
   init: function () {
@@ -134,15 +135,23 @@ AFRAME.registerComponent('model-viewer', {
   },
 
   update: function () {
-    if (!this.data.gltfModel) { return; }
+    let currentModel =  this.modelEl.components['gltf-model']?.attrValue;
+    if (!currentModel) { return; }
     this.el.setAttribute('ar-hit-test', { target: '#modelEl', type: 'map' });
-    this.modelEl.setAttribute('gltf-model', this.data.gltfModel);
   },
 
   submitURLButtonClicked: function (evt) {
-    var modelURL = this.inputEl.value;
+    const modelURL = this.inputEl.value;
     if (modelURL === this.inputDefaultValue) { return; }
-    this.el.setAttribute('model-viewer', 'gltfModel', modelURL);
+
+    this.modelEl.setAttribute('gltf-model', modelURL);
+
+    let title = /([^/.]+)(\.[^/]+)?\/?$/.exec(modelURL)?.[1] || "";
+    if (title.startsWith("scene")) {
+      title = /([^/]+)\/[^/]+$/.exec(modelURL)?.[1] || "";
+    }
+    const titleEl = document.getElementById(TITLE_ID);
+    titleEl.setAttribute('text', 'value: ' + title + '; width: 6');
   },
 
   initCameraRig: function () {
@@ -203,7 +212,7 @@ AFRAME.registerComponent('model-viewer', {
     var arShadowEl = this.arShadowEl = document.createElement('a-entity');
     // The title / legend displayed above the model.
     var titleEl = this.titleEl = document.createElement('a-entity');
-    // Scene ligthing.
+    // Scene lighting.
     var lightEl = this.lightEl = document.createElement('a-entity');
     var sceneLightEl = this.sceneLightEl = document.createElement('a-entity');
 
@@ -230,8 +239,10 @@ AFRAME.registerComponent('model-viewer', {
     modelEl.setAttribute('animation-mixer', '');
     modelEl.setAttribute('shadow', 'cast: true; receive: false');
     modelEl.setAttribute('id', 'modelEl');
+    modelEl.setAttribute('gltf-model', `#styracosaurus`);
 
     modelPivotEl.appendChild(modelEl);
+    modelEl.setAttribute('multiuser', {});
 
     shadowEl.setAttribute('rotation', '-90 -30 0');
     shadowEl.setAttribute('geometry', 'primitive: plane; width: 1.0; height: 1.0');
@@ -256,10 +267,11 @@ AFRAME.registerComponent('model-viewer', {
 
     modelPivotEl.appendChild(arShadowEl);
 
-    titleEl.id = 'title';
-    titleEl.setAttribute('text', 'value: ' + this.data.title + '; width: 6');
+    titleEl.id = TITLE_ID;
+    titleEl.setAttribute('text', 'value: ' + 'Styracosaurus' + '; width: 6');
     titleEl.setAttribute('hide-on-enter-ar', '');
     titleEl.setAttribute('visible', 'false');
+    titleEl.setAttribute('multiuser', {});
 
     this.containerEl.appendChild(titleEl);
 
