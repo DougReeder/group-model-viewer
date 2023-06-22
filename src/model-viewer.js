@@ -137,7 +137,7 @@ AFRAME.registerComponent('model-viewer', {
   update: function () {
     let currentModel =  this.modelEl.components['gltf-model']?.attrValue;
     if (!currentModel) { return; }
-    this.el.setAttribute('ar-hit-test', { target: '#modelEl', type: 'map' });
+    this.el.setAttribute('ar-hit-test', { button: 'squeeze', target: '#modelEl', type: 'map' });
   },
 
   submitURLButtonClicked: function (evt) {
@@ -173,7 +173,7 @@ AFRAME.registerComponent('model-viewer', {
     rightHandEl.setAttribute('line', {color: '#118A7E'});
 
     leftHandEl.setAttribute('rotation', '0 90 0');
-    leftHandEl.setAttribute('laser-controls', {hand: 'right'});
+    leftHandEl.setAttribute('laser-controls', {hand: 'left'});
     leftHandEl.setAttribute('raycaster', {objects: '.raycastable'});
     leftHandEl.setAttribute('line', {color: '#118A7E'});
 
