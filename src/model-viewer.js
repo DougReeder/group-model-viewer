@@ -16,6 +16,7 @@ AFRAME.registerComponent('model-viewer', {
     el.setAttribute('background', '');
 
     this.onModelLoaded = this.onModelLoaded.bind(this);
+    this.onArHitTestSelect = this.onArHitTestSelect.bind(this);
 
     this.onMouseUp = this.onMouseUp.bind(this);
     this.onMouseMove = this.onMouseMove.bind(this);
@@ -138,6 +139,7 @@ AFRAME.registerComponent('model-viewer', {
     let currentModel =  this.modelEl.components['gltf-model']?.attrValue;
     if (!currentModel) { return; }
     this.el.setAttribute('ar-hit-test', { button: 'squeeze', target: '#modelEl', type: 'map' });
+    this.el.addEventListener('ar-hit-test-select', this.onArHitTestSelect);
   },
 
   submitURLButtonClicked: function (evt) {
@@ -152,6 +154,9 @@ AFRAME.registerComponent('model-viewer', {
     }
     const titleEl = document.getElementById(TITLE_ID);
     titleEl.setAttribute('text', 'value: ' + title + '; width: 6');
+
+    this.indicatorEl.left.setAttribute('position', '-1 0 0');
+    this.indicatorEl.right.setAttribute('position', '1 0 0');
   },
 
   initCameraRig: function () {
@@ -159,6 +164,18 @@ AFRAME.registerComponent('model-viewer', {
     var cameraEl = this.cameraEl = document.createElement('a-entity');
     var rightHandEl = this.rightHandEl = document.createElement('a-entity');
     var leftHandEl = this.leftHandEl = document.createElement('a-entity');
+    this.handEl = {
+      'left': leftHandEl,
+      'right': rightHandEl
+    }
+    this.oldHandX = {
+      'left': 0,
+      'right': 0
+    };
+    this.oldHandY = {
+      'left': 0,
+      'right': 0
+    };
 
     cameraEl.setAttribute('camera', {fov: 60});
     cameraEl.setAttribute('look-controls', {
@@ -215,6 +232,11 @@ AFRAME.registerComponent('model-viewer', {
     // Scene lighting.
     var lightEl = this.lightEl = document.createElement('a-entity');
     var sceneLightEl = this.sceneLightEl = document.createElement('a-entity');
+    // Laser pointer cursors
+    this.indicatorEl = {
+      'left': document.createElement('a-entity'),
+      'right': document.createElement('a-entity')
+    }
 
     sceneLightEl.setAttribute('light', {
       type: 'hemisphere',
@@ -235,6 +257,7 @@ AFRAME.registerComponent('model-viewer', {
 
     this.containerEl.appendChild(laserHitPanelEl);
 
+    modelEl.classList.add('raycastable');
     modelEl.setAttribute('rotation', '0 -30 0');
     modelEl.setAttribute('animation-mixer', '');
     modelEl.setAttribute('shadow', 'cast: true; receive: false');
@@ -278,22 +301,32 @@ AFRAME.registerComponent('model-viewer', {
     lightEl.id = 'light';
     lightEl.setAttribute('position', '-2 4 2');
     lightEl.setAttribute('light', {
-      type: 'directional',
-      castShadow: true,
-      shadowMapHeight: 1024,
-      shadowMapWidth: 1024,
-      shadowCameraLeft: -7,
-      shadowCameraRight: 5,
-      shadowCameraBottom: -5,
-      shadowCameraTop: 5,
+      type: 'hemisphere',
+      color: '#fff',
+      groundColor: '#444',
+      castShadow: false,
       intensity: 0.5,
-      target: 'modelPivot'
     });
 
     this.containerEl.appendChild(lightEl);
     this.containerEl.appendChild(modelPivotEl);
 
     this.el.appendChild(containerEl);
+
+    const CURSOR_LENGTH = '0.33';
+    for (const hand of ['left', 'right']) {
+      const cone = new THREE.CylinderGeometry(0.02, 0, CURSOR_LENGTH);
+      cone.translate(0, CURSOR_LENGTH/2, 0);
+      const material = new THREE.MeshLambertMaterial( {color: 'left' === hand ? 'blue' : 'red'} );
+      const indicator = new THREE.Mesh(cone, material );
+
+      this.indicatorEl[hand].setObject3D('mesh', indicator);
+
+      this.indicatorEl[hand].setAttribute('id', `${hand} indicator`);
+      this.el.appendChild(this.indicatorEl[hand]);
+    }
+    this.indicatorEl.left.setAttribute('position', '-1 0 0');
+    this.indicatorEl.right.setAttribute('position', '1 0 0');
   },
 
   onThumbstickMoved: function (evt) {
@@ -321,8 +354,14 @@ AFRAME.registerComponent('model-viewer', {
     if (!intersection) { return; }
     cursorEl.setAttribute('raycaster', 'lineColor', 'white');
     this.activeHandEl = cursorEl;
-    this.oldHandX = undefined;
-    this.oldHandY = undefined;
+    this.oldHandX = {
+      'left': undefined,
+      'right': undefined
+    };
+    this.oldHandY = {
+      'left': undefined,
+      'right': undefined
+    };
   },
 
   onMouseUpLaserHitPanel: function (evt) {
@@ -343,27 +382,55 @@ AFRAME.registerComponent('model-viewer', {
 
   tick: function () {
     var modelPivotEl = this.modelPivotEl;
-    var intersection;
-    var intersectionPosition;
     var laserHitPanelEl = this.laserHitPanelEl;
     var activeHandEl = this.activeHandEl;
-    if (!this.el.sceneEl.is('vr-mode')) { return; }
-    if (!activeHandEl) { return; }
-    intersection = activeHandEl.components.raycaster.getIntersection(laserHitPanelEl);
-    if (!intersection) {
-      activeHandEl.setAttribute('raycaster', 'lineColor', 'white');
-      return;
+    const normal = new THREE.Vector3();
+    const rotationQuaternion = new THREE.Quaternion();
+
+    if (this.el.sceneEl.is('vr-mode')) {
+      if (!activeHandEl) { return; }
+      const intersection = activeHandEl.components.raycaster.getIntersection(laserHitPanelEl);
+      if (!intersection) {
+        activeHandEl.setAttribute('raycaster', 'lineColor', 'white');
+      } else {
+        activeHandEl.setAttribute('raycaster', 'lineColor', '#007AFF');
+        const intersectionPosition = intersection.point;
+        const hand = activeHandEl === this.handEl.left ? 'left' : 'right';
+        this.oldHandX[hand] = this.oldHandX[hand] || intersectionPosition.x;
+        this.oldHandY[hand] = this.oldHandY[hand] || intersectionPosition.y;
+
+        modelPivotEl.object3D.rotation.y -= (this.oldHandX[hand] - intersectionPosition.x) / 4;
+        modelPivotEl.object3D.rotation.x += (this.oldHandY[hand] - intersectionPosition.y) / 4;
+
+        this.oldHandX[hand] = intersectionPosition.x;
+        this.oldHandY[hand] = intersectionPosition.y;
+      }
+    } else if (this.el.sceneEl.is('ar-mode')) {
+      for (const hand of ['left', 'right']) {
+        const intersection = this.handEl[hand].components.raycaster.intersections[0];
+        if (!intersection) {
+          this.handEl[hand].setAttribute('raycaster', 'lineColor', 'white');
+        } else {
+          this.handEl[hand].setAttribute('raycaster', 'lineColor', '#007AFF');
+          const intersectionPosition = intersection.point;
+          this.oldHandX[hand] = this.oldHandX[hand] || intersectionPosition.x;
+          this.oldHandY[hand] = this.oldHandY[hand] || intersectionPosition.y;
+
+          if (this.el.sceneEl.is('vr-mode')) {
+            modelPivotEl.object3D.rotation.y -= (this.oldHandX[hand] - intersectionPosition.x) / 4;
+            modelPivotEl.object3D.rotation.x += (this.oldHandY[hand] - intersectionPosition.y) / 4;
+          } else if (this.el.sceneEl.is('ar-mode')) {
+            this.indicatorEl[hand].setAttribute('position', intersection.point.x + ' ' + intersection.point.y + ' ' + intersection.point.z);
+            normal.copy(intersection.normal).normalize().applyNormalMatrix(intersection.object.normalMatrix);
+            rotationQuaternion.setFromUnitVectors(THREE.Object3D.DEFAULT_UP, normal);
+            this.indicatorEl[hand].setAttribute('rotationquaternion', rotationQuaternion);
+          }
+
+          this.oldHandX[hand] = intersectionPosition.x;
+          this.oldHandY[hand] = intersectionPosition.y;
+        }
+      }
     }
-    activeHandEl.setAttribute('raycaster', 'lineColor', '#007AFF');
-    intersectionPosition = intersection.point;
-    this.oldHandX = this.oldHandX || intersectionPosition.x;
-    this.oldHandY = this.oldHandY || intersectionPosition.y;
-
-    modelPivotEl.object3D.rotation.y -= (this.oldHandX - intersectionPosition.x) / 4;
-    modelPivotEl.object3D.rotation.x += (this.oldHandY - intersectionPosition.y) / 4;
-
-    this.oldHandX = intersectionPosition.x;
-    this.oldHandY = intersectionPosition.y;
   },
 
   onEnterVR: function () {
@@ -484,6 +551,12 @@ AFRAME.registerComponent('model-viewer', {
 
   onModelLoaded: function () {
     this.centerAndScaleModel();
+  },
+
+  onArHitTestSelect: function (evt) {
+    console.log("onArHitTestSelect", evt.detail)
+    this.indicatorEl.left.setAttribute('position', '-1 0 0');
+    this.indicatorEl.right.setAttribute('position', '1 0 0');
   },
 
   centerAndScaleModel: function () {
