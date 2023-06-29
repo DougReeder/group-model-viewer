@@ -16,6 +16,8 @@ AFRAME.registerComponent('model-viewer', {
     el.setAttribute('background', '');
 
     this.onModelLoaded = this.onModelLoaded.bind(this);
+    this.anchorQuaternion = new THREE.Quaternion();
+    this.anchorRotation = new THREE.Euler();
     this.onArHitTestSelect = this.onArHitTestSelect.bind(this);
 
     this.onMouseUp = this.onMouseUp.bind(this);
@@ -138,7 +140,7 @@ AFRAME.registerComponent('model-viewer', {
   update: function () {
     let currentModel =  this.modelEl.components['gltf-model']?.attrValue;
     if (!currentModel) { return; }
-    this.el.setAttribute('ar-hit-test', { button: 'squeeze', target: '#modelEl', type: 'map' });
+    this.el.setAttribute('ar-hit-test', { button: 'squeeze', target: '#baseplateEl', type: 'map' });
     this.el.addEventListener('ar-hit-test-select', this.onArHitTestSelect);
   },
 
@@ -177,6 +179,8 @@ AFRAME.registerComponent('model-viewer', {
       'right': 0
     };
 
+    cameraRigEl.setAttribute('id', 'cameraRigEl');
+
     cameraEl.setAttribute('camera', {fov: 60});
     cameraEl.setAttribute('look-controls', {
       magicWindowTrackingEnabled: false,
@@ -214,8 +218,8 @@ AFRAME.registerComponent('model-viewer', {
   },
 
   initEntities: function () {
-    // Container for our entities to keep the scene clean and tidy.
-    var containerEl = this.containerEl = document.createElement('a-entity');
+    // This is positioned & oriented by the user in AR, and untranslated elsewhere.
+    const baseplateEl = this.baseplateEl = document.createElement('a-triangle');
     // Plane used as a hit target for laser controls when in VR mode
     var laserHitPanelEl = this.laserHitPanelEl = document.createElement('a-entity');
     // Models are often not centered on the 0,0,0.
@@ -234,9 +238,15 @@ AFRAME.registerComponent('model-viewer', {
     var sceneLightEl = this.sceneLightEl = document.createElement('a-entity');
     // Laser pointer cursors
     this.indicatorEl = {
-      'left': document.createElement('a-entity'),
-      'right': document.createElement('a-entity')
+      'left': document.createElement('a-cone'),
+      'right': document.createElement('a-cone')
     }
+
+    baseplateEl.object3D.name = "baseplate elmt";
+    baseplateEl.setAttribute('id', 'baseplateEl');
+    baseplateEl.setAttribute('vertex-a', ' .001 0 -.001');
+    baseplateEl.setAttribute('vertex-b', '-.001 0 -.001');
+    baseplateEl.setAttribute('vertex-c', ' 0   0  .001');
 
     sceneLightEl.setAttribute('light', {
       type: 'hemisphere',
@@ -244,20 +254,23 @@ AFRAME.registerComponent('model-viewer', {
     });
     sceneLightEl.setAttribute('hide-on-enter-ar', '');
 
+    modelPivotEl.object3D.name = "model pivot elmt";
     modelPivotEl.id = 'modelPivot';
 
     this.el.appendChild(sceneLightEl);
 
     laserHitPanelEl.id = 'laserHitPanel';
+    laserHitPanelEl.setAttribute('id','laserHitPanel');
     laserHitPanelEl.setAttribute('position', '0 0 -10');
     laserHitPanelEl.setAttribute('geometry', 'primitive: plane; width: 30; height: 20');
     laserHitPanelEl.setAttribute('material', 'color: red');
     laserHitPanelEl.setAttribute('visible', 'false');
     laserHitPanelEl.classList.add('raycastable');
 
-    this.containerEl.appendChild(laserHitPanelEl);
+    this.el.appendChild(laserHitPanelEl);
 
     modelEl.classList.add('raycastable');
+    modelEl.object3D.name = "model elmt";
     modelEl.setAttribute('rotation', '0 -30 0');
     modelEl.setAttribute('animation-mixer', '');
     modelEl.setAttribute('shadow', 'cast: true; receive: false');
@@ -267,6 +280,7 @@ AFRAME.registerComponent('model-viewer', {
     modelPivotEl.appendChild(modelEl);
     modelEl.setAttribute('multiuser', {});
 
+    shadowEl.setAttribute('id', 'shadow elmt');
     shadowEl.setAttribute('rotation', '-90 -30 0');
     shadowEl.setAttribute('geometry', 'primitive: plane; width: 1.0; height: 1.0');
     shadowEl.setAttribute('material', 'src: #shadow; transparent: true; opacity: 0.40');
@@ -274,6 +288,7 @@ AFRAME.registerComponent('model-viewer', {
 
     modelPivotEl.appendChild(shadowEl);
 
+    arShadowEl.setAttribute('id', 'AR shadow elmt');
     arShadowEl.setAttribute('rotation', '-90 0 0');
     arShadowEl.setAttribute('geometry', 'primitive: plane; width: 30.0; height: 30.0');
     arShadowEl.setAttribute('shadow', 'receive: true');
@@ -288,7 +303,7 @@ AFRAME.registerComponent('model-viewer', {
       arShadowEl.object3D.visible = true;
     });
 
-    modelPivotEl.appendChild(arShadowEl);
+    this.el.appendChild(arShadowEl);
 
     titleEl.id = TITLE_ID;
     titleEl.setAttribute('text', 'value: ' + 'Styracosaurus' + '; width: 6');
@@ -296,7 +311,7 @@ AFRAME.registerComponent('model-viewer', {
     titleEl.setAttribute('visible', 'false');
     titleEl.setAttribute('multiuser', {});
 
-    this.containerEl.appendChild(titleEl);
+    this.baseplateEl.appendChild(titleEl);
 
     lightEl.id = 'light';
     lightEl.setAttribute('position', '-2 4 2');
@@ -308,25 +323,39 @@ AFRAME.registerComponent('model-viewer', {
       intensity: 0.5,
     });
 
-    this.containerEl.appendChild(lightEl);
-    this.containerEl.appendChild(modelPivotEl);
+    this.el.appendChild(lightEl);
 
-    this.el.appendChild(containerEl);
+    this.baseplateEl.appendChild(modelPivotEl);
 
-    const CURSOR_LENGTH = '0.33';
+    this.el.appendChild(baseplateEl);
+
+    const CURSOR_LENGTH = 0.50;
     for (const hand of ['left', 'right']) {
-      const cone = new THREE.CylinderGeometry(0.02, 0, CURSOR_LENGTH);
-      cone.translate(0, CURSOR_LENGTH/2, 0);
-      const material = new THREE.MeshLambertMaterial( {color: 'left' === hand ? 'blue' : 'red'} );
-      const indicator = new THREE.Mesh(cone, material );
+      this.indicatorEl[hand].setAttribute('radius-top', 0.02);
+      this.indicatorEl[hand].setAttribute('radius-bottom', 0);
+      this.indicatorEl[hand].setAttribute('height', CURSOR_LENGTH);
+      this.indicatorEl[hand].setAttribute('color', 'left' === hand ? 'blue' : 'red');
 
-      this.indicatorEl[hand].setObject3D('mesh', indicator);
+      // this.indicatorEl[hand].setAttribute('geometry', {primitive: 'triangle', vertexA: {x:0, y:0, z:0}, vertexB: {x:0.01, y:CURSOR_LENGTH, z:0}, vertexC: {x:-0.01, y:CURSOR_LENGTH, z:0}});
+      // this.indicatorEl[hand].setAttribute('material', {side: 'double', color: 'left' === hand ? 'blue' : 'red'})
 
-      this.indicatorEl[hand].setAttribute('id', `${hand} indicator`);
-      this.el.appendChild(this.indicatorEl[hand]);
+      // this.indicatorEl[hand].setAttribute('vertex-a', ' 0    0                0');
+      // this.indicatorEl[hand].setAttribute('vertex-b', ` 0.01 ${CURSOR_LENGTH} 0`);
+      // this.indicatorEl[hand].setAttribute('vertex-c', `-0.01 ${CURSOR_LENGTH} 0`);
+
+      // const cone = new THREE.CylinderGeometry(0.02, 0, CURSOR_LENGTH);
+      // cone.translate(0, CURSOR_LENGTH/2, 0);
+      // const material = new THREE.MeshLambertMaterial( {color: 'left' === hand ? 'blue' : 'red'} );
+      // const indicator = new THREE.Mesh(cone, material );
+
+      // this.indicatorEl[hand].setObject3D('mesh', indicator);
+      this.indicatorEl[hand].object3D.name = `${hand} indicator`;
+
+      this.indicatorEl[hand].setAttribute('id', `${hand}Indicator${Math.round(Math.random() * Number.MAX_SAFE_INTEGER)}`);
+      this.indicatorEl[hand].setAttribute('position', 'left' === hand ? '-1 0 0' : '1 0 0');
+      this.indicatorEl[hand].setAttribute('multiuser', {});
+      modelPivotEl.appendChild(this.indicatorEl[hand]);
     }
-    this.indicatorEl.left.setAttribute('position', '-1 0 0');
-    this.indicatorEl.right.setAttribute('position', '1 0 0');
   },
 
   onThumbstickMoved: function (evt) {
@@ -384,6 +413,7 @@ AFRAME.registerComponent('model-viewer', {
     var modelPivotEl = this.modelPivotEl;
     var laserHitPanelEl = this.laserHitPanelEl;
     var activeHandEl = this.activeHandEl;
+    const position = new THREE.Vector3();
     const normal = new THREE.Vector3();
     const rotationQuaternion = new THREE.Quaternion();
 
@@ -416,15 +446,16 @@ AFRAME.registerComponent('model-viewer', {
           this.oldHandX[hand] = this.oldHandX[hand] || intersectionPosition.x;
           this.oldHandY[hand] = this.oldHandY[hand] || intersectionPosition.y;
 
-          if (this.el.sceneEl.is('vr-mode')) {
-            modelPivotEl.object3D.rotation.y -= (this.oldHandX[hand] - intersectionPosition.x) / 4;
-            modelPivotEl.object3D.rotation.x += (this.oldHandY[hand] - intersectionPosition.y) / 4;
-          } else if (this.el.sceneEl.is('ar-mode')) {
-            this.indicatorEl[hand].setAttribute('position', intersection.point.x + ' ' + intersection.point.y + ' ' + intersection.point.z);
-            normal.copy(intersection.normal).normalize().applyNormalMatrix(intersection.object.normalMatrix);
-            rotationQuaternion.setFromUnitVectors(THREE.Object3D.DEFAULT_UP, normal);
-            this.indicatorEl[hand].setAttribute('rotationquaternion', rotationQuaternion);
-          }
+          position.copy(intersection.point);
+          this.modelPivotEl.object3D.worldToLocal(position);
+          this.indicatorEl[hand].setAttribute('position', position);
+
+          // normal.copy(intersection.normal).normalize().applyNormalMatrix(intersection.object.normalMatrix);
+          const up = new THREE.Vector3(0, 1, 0);
+          // up.applyQuaternion(this.anchorQuaternion);
+          rotationQuaternion.setFromUnitVectors(up, intersection.normal);
+          // rotationQuaternion.premultiply(this.anchorQuaternion);
+          this.indicatorEl[hand].setAttribute('rotationquaternion', rotationQuaternion);
 
           this.oldHandX[hand] = intersectionPosition.x;
           this.oldHandY[hand] = intersectionPosition.y;
@@ -434,6 +465,10 @@ AFRAME.registerComponent('model-viewer', {
   },
 
   onEnterVR: function () {
+    if (this.el.sceneEl.is('vr-mode')) {
+      this.baseplateEl.object3D.position.y = 1.6;
+    }
+
     var cameraRigEl = this.cameraRigEl;
 
     this.cameraRigPosition = cameraRigEl.object3D.position.clone();
@@ -447,6 +482,8 @@ AFRAME.registerComponent('model-viewer', {
   },
 
   onExitVR: function () {
+    this.baseplateEl.object3D.position.y = 0;
+
     var cameraRigEl = this.cameraRigEl;
 
     cameraRigEl.object3D.position.copy(this.cameraRigPosition);
@@ -554,7 +591,9 @@ AFRAME.registerComponent('model-viewer', {
   },
 
   onArHitTestSelect: function (evt) {
-    console.log("onArHitTestSelect", evt.detail)
+    this.anchorQuaternion.copy(evt.detail.orientation);
+    this.anchorRotation.setFromQuaternion(this.anchorQuaternion, 'XYZ');
+    console.info("onArHitTestSelect", this.anchorQuaternion, this.anchorRotation)
     this.indicatorEl.left.setAttribute('position', '-1 0 0');
     this.indicatorEl.right.setAttribute('position', '1 0 0');
   },
@@ -580,9 +619,9 @@ AFRAME.registerComponent('model-viewer', {
     size = box.getSize(new THREE.Vector3());
 
     // Calculate scale factor to resize model to human scale.
-    scale = 1.6 / size.y;
-    scale = 2.0 / size.x < scale ? 2.0 / size.x : scale;
-    scale = 2.0 / size.z < scale ? 2.0 / size.z : scale;
+    scale = 1.0 / size.y;
+    scale = 1.5 / size.x < scale ? 1.5 / size.x : scale;
+    scale = 1.5 / size.z < scale ? 1.5 / size.z : scale;
 
     modelEl.object3D.scale.set(scale, scale, scale);
 
