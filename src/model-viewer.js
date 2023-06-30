@@ -1,5 +1,7 @@
 /* global AFRAME, THREE */
 
+const INDICATOR_LENGTH = 0.33;
+const INDICATOR_RADIUS = 0.02;
 const TITLE_ID = 'title';
 
 AFRAME.registerComponent('model-viewer', {
@@ -275,7 +277,7 @@ AFRAME.registerComponent('model-viewer', {
     modelEl.setAttribute('animation-mixer', '');
     modelEl.setAttribute('shadow', 'cast: true; receive: false');
     modelEl.setAttribute('id', 'modelEl');
-    modelEl.setAttribute('gltf-model', `#styracosaurus`);
+    modelEl.setAttribute('gltf-model', `resources/styracosaurus_animated.glb`);
 
     modelPivotEl.appendChild(modelEl);
     modelEl.setAttribute('multiuser', {});
@@ -328,34 +330,6 @@ AFRAME.registerComponent('model-viewer', {
     this.baseplateEl.appendChild(modelPivotEl);
 
     this.el.appendChild(baseplateEl);
-
-    const CURSOR_LENGTH = 0.50;
-    for (const hand of ['left', 'right']) {
-      this.indicatorEl[hand].setAttribute('radius-top', 0.02);
-      this.indicatorEl[hand].setAttribute('radius-bottom', 0);
-      this.indicatorEl[hand].setAttribute('height', CURSOR_LENGTH);
-      this.indicatorEl[hand].setAttribute('color', 'left' === hand ? 'blue' : 'red');
-
-      // this.indicatorEl[hand].setAttribute('geometry', {primitive: 'triangle', vertexA: {x:0, y:0, z:0}, vertexB: {x:0.01, y:CURSOR_LENGTH, z:0}, vertexC: {x:-0.01, y:CURSOR_LENGTH, z:0}});
-      // this.indicatorEl[hand].setAttribute('material', {side: 'double', color: 'left' === hand ? 'blue' : 'red'})
-
-      // this.indicatorEl[hand].setAttribute('vertex-a', ' 0    0                0');
-      // this.indicatorEl[hand].setAttribute('vertex-b', ` 0.01 ${CURSOR_LENGTH} 0`);
-      // this.indicatorEl[hand].setAttribute('vertex-c', `-0.01 ${CURSOR_LENGTH} 0`);
-
-      // const cone = new THREE.CylinderGeometry(0.02, 0, CURSOR_LENGTH);
-      // cone.translate(0, CURSOR_LENGTH/2, 0);
-      // const material = new THREE.MeshLambertMaterial( {color: 'left' === hand ? 'blue' : 'red'} );
-      // const indicator = new THREE.Mesh(cone, material );
-
-      // this.indicatorEl[hand].setObject3D('mesh', indicator);
-      this.indicatorEl[hand].object3D.name = `${hand} indicator`;
-
-      this.indicatorEl[hand].setAttribute('id', `${hand}Indicator${Math.round(Math.random() * Number.MAX_SAFE_INTEGER)}`);
-      this.indicatorEl[hand].setAttribute('position', 'left' === hand ? '-1 0 0' : '1 0 0');
-      this.indicatorEl[hand].setAttribute('multiuser', {});
-      modelPivotEl.appendChild(this.indicatorEl[hand]);
-    }
   },
 
   onThumbstickMoved: function (evt) {
@@ -479,6 +453,10 @@ AFRAME.registerComponent('model-viewer', {
     } else {
       cameraRigEl.object3D.position.set(0, 0, 0);
     }
+
+    for (const hand of ['left', 'right']) {
+      this.createIndicator(hand);
+    }
   },
 
   onExitVR: function () {
@@ -490,6 +468,42 @@ AFRAME.registerComponent('model-viewer', {
     cameraRigEl.object3D.rotation.copy(this.cameraRigRotation);
 
     cameraRigEl.object3D.rotation.set(0, 0, 0);
+    for (const hand of ['left', 'right']) {
+      this.modelPivotEl.removeChild(this.indicatorEl[hand]);
+    }
+  },
+
+  createIndicator: function (hand) {
+    this.indicatorEl[hand].setAttribute('radius-top', 0.02);
+    this.indicatorEl[hand].setAttribute('radius-bottom', 0);
+    this.indicatorEl[hand].setAttribute('height', INDICATOR_LENGTH);
+    this.indicatorEl[hand].setAttribute('color', this.el.sceneEl.dataset.userColor || '#666');
+
+    // const cone = document.createElement('a-cone');
+    // cone.object3D.name = `${hand} indicator cone`;
+    // cone.setAttribute('id', `${hand}IndicatorCone-${this.el.sceneEl.dataset.viewId}`)
+    // cone.setAttribute('radius-top', INDICATOR_RADIUS);
+    // cone.setAttribute('radius-bottom', 0);
+    // cone.setAttribute('height', INDICATOR_LENGTH);
+    // cone.setAttribute('color', this.el.sceneEl.dataset.userColor || 'teal');
+    // cone.setAttribute('position', {x: 0, y:INDICATOR_LENGTH/2, z: 0});
+    // this.indicatorEl[hand].appendChild(cone);
+    //
+    // const dome = document.createElement('a-sphere');
+    // dome.object3D.name = `${hand} indicator dome`;
+    // dome.setAttribute('id', `${hand}IndicatorDome-${this.el.sceneEl.dataset.viewId}`)
+    // dome.setAttribute('radius', INDICATOR_RADIUS);
+    // dome.setAttribute('theta-start', 0);
+    // dome.setAttribute('theta-length', 90);
+    // dome.setAttribute('color', 'left' === hand ? 'blue' : 'red');
+    // dome.setAttribute('position', {x: 0, y:INDICATOR_LENGTH, z: 0});
+    // this.indicatorEl[hand].appendChild(dome);
+
+    this.indicatorEl[hand].object3D.name = `${hand} indicator`;
+    this.indicatorEl[hand].setAttribute('id', `${hand}Indicator-${this.el.sceneEl.dataset.viewId}`);
+    this.indicatorEl[hand].setAttribute('position', 'left' === hand ? '-1 0 0' : '1 0 0');
+    this.indicatorEl[hand].setAttribute('multiuser', {});
+    this.modelPivotEl.appendChild(this.indicatorEl[hand]);
   },
 
   onTouchMove: function (evt) {
